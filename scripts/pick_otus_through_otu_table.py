@@ -11,8 +11,8 @@ __maintainer__ = "Greg Caporaso"
 __email__ = "gregcaporaso@gmail.com"
 __status__ = "Development"
 
-
-from cmd_abstraction.util import cmd_main, PickOtusThroughOtuTable
+from cmd_abstraction.util import cmd_main
+from cmd_abstraction.interfaces import PickOtusThroughOtuTable
 from sys import argv
 
 if __name__ == "__main__":
