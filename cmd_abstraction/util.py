@@ -13,18 +13,23 @@ __status__ = "Development"
 
 from qiime.util import make_option
 from os import makedirs
-from qiime.util import (load_qiime_config, 
+from qiime.util import (load_qiime_config,
                         parse_command_line_parameters,
                         get_options_lookup)
 from qiime.parse import parse_qiime_parameters
-from qiime.workflow import (run_qiime_data_preparation, print_commands,
-    call_commands_serially, print_to_stdout, no_status_updates,
-    validate_and_set_jobs_to_start)
+from qiime.workflow import (run_qiime_data_preparation, 
+                            print_commands,
+                            call_commands_serially,
+                            print_to_stdout,
+                            no_status_updates,
+                            log_input_md5s,
+                            WorkflowLogger,
+                            generate_log_fp)
 
 qiime_config = load_qiime_config()
 options_lookup = get_options_lookup()
 
-def cmd_main(cmd_constructor):
+def cmd_main(cmd_constructor, argv):
     
     cmd = cmd_constructor()
     script_info = cmd.getScriptInfo()
@@ -33,7 +38,9 @@ def cmd_main(cmd_constructor):
        parse_command_line_parameters(**script_info)
     
     try:
-        cmd(option_parser, opts, args)
+        cmd(params = eval(str(opts)), 
+            args = args,
+            argv = argv)
     except QiimeCommandError, e:
         option_parser.error(e)
 
@@ -43,6 +50,12 @@ class QiimeCommandError(IOError):
 class QiimeCommand(object):
     """ Base class for abstracted QIIME command
     """
+    
+    _standard_options = [
+        make_option('--master_script_log_dir',type='existing_dirpath',
+        help='directory where master script log will be stored [default: %default]',
+        default='./')]
+    _input_file_parameter_ids = []
     
     _brief_description = """ """
     _script_description = """ """
@@ -56,12 +69,45 @@ class QiimeCommand(object):
     def __init__(self):
         """
         """
-        pass
+        self._optional_options.extend(self._standard_options)
     
-    def __call__(self):
+    def __call__(self,params,args,argv,logger=None):
         """
         """
-        raise NotImplementedError, "All subclasses must implement __call__."
+        close_logger_on_success = self._start_logging(params,args,argv,logger)
+        self.run_command(params,args)
+        self._stop_logging(params,args,argv,close_logger_on_success)
+
+    def _start_logging(self,
+                       params,
+                       args,
+                       argv,
+                       logger):
+        if logger == None:
+            self.logger = WorkflowLogger(generate_log_fp(params['master_script_log_dir']),
+                                    params={},
+                                    qiime_config=qiime_config)
+            close_logger_on_success = True
+        else:
+            self.logger = logger
+            close_logger_on_success = False
+        
+        self.logger.write('Command:\n')
+        self.logger.write(' '.join(argv))        
+        self.logger.write('\n\n')
+    
+        log_input_md5s(self.logger,
+                       [params[p] for p in self._input_file_parameter_ids])
+        
+        return close_logger_on_success
+
+    def _stop_logging(self,
+                      params,
+                      args,
+                      argv,
+                      close_logger_on_success):
+        if close_logger_on_success:
+            self.logger.close()
 
     def getScriptInfo(self):
         result = {}
@@ -74,8 +120,21 @@ class QiimeCommand(object):
         result['optional_options'] = self._optional_options
         result['version'] = self._version
         return result
+    
+    def run_command(self,params,args):
+        raise NotImplementedError, "All subclasses must implement run_command."
 
-class PickOtusThroughOtuTable(QiimeCommand):
+class WorkflowCommand(QiimeCommand):
+
+    def _validate_jobs_to_start(self,
+                                jobs_to_start,
+                                default_jobs_to_start,
+                                parallel):
+        if (int(jobs_to_start) != int(default_jobs_to_start)) and not parallel:
+            raise QiimeCommandError, "Passing -O requires that -a is also passed."
+        return str(jobs_to_start)
+
+class PickOtusThroughOtuTable(WorkflowCommand):
     """
     """
     _brief_description = """A workflow script for picking OTUs through building OTU tables"""
@@ -108,45 +167,46 @@ class PickOtusThroughOtuTable(QiimeCommand):
         options_lookup['jobs_to_start_workflow']
     ]
     _version = __version__
-
-    def __call__(self, option_parser, opts, args):
-
-        verbose = opts.verbose
     
-        input_fp = opts.input_fp
-        output_dir = opts.output_dir
-        verbose = opts.verbose
-        print_only = opts.print_only
+    _input_file_parameter_ids = ['input_fp','parameter_fp']
+
+    def run_command(self, 
+                    params, 
+                    args):
+
+        verbose = params['verbose']
     
-        parallel = opts.parallel
+        input_fp = params['input_fp']
+        output_dir = params['output_dir']
+        verbose = params['verbose']
+        print_only = params['print_only']
+    
+        parallel = params['parallel']
         # No longer checking that jobs_to_start > 2, but
         # commenting as we may change our minds about this.
         #if parallel: raise_error_on_parallel_unavailable()
     
-        if opts.parameter_fp:
+        if params['parameter_fp']:
             try:
-                parameter_f = open(opts.parameter_fp)
+                parameter_f = open(params['parameter_fp'])
             except IOError:
                 raise QiimeCommandError,\
                  "Can't open parameters file (%s). Does it exist? Do you have read access?"\
-                 % opts.parameter_fp
-            params = parse_qiime_parameters(parameter_f)
+                 % params['parameter_fp']
+            wf_params = parse_qiime_parameters(parameter_f)
         else:
-            params = parse_qiime_parameters([]) 
+            wf_params = parse_qiime_parameters([]) 
             # empty list returns empty defaultdict for now
-    
-        jobs_to_start = opts.jobs_to_start
-        default_jobs_to_start = qiime_config['jobs_to_start']
-        validate_and_set_jobs_to_start(params,
-                                       jobs_to_start,
-                                       default_jobs_to_start,
-                                       parallel,
-                                       option_parser)
+            
+        wf_params['parallel']['jobs_to_start'] = self._validate_jobs_to_start(
+                                                            params['jobs_to_start'],
+                                                            qiime_config['jobs_to_start'],
+                                                            parallel)
     
         try:
             makedirs(output_dir)
         except OSError:
-            if opts.force:
+            if params['force']:
                 pass
             else:
                 # Since the analysis can take quite a while, I put this check
@@ -169,7 +229,7 @@ class PickOtusThroughOtuTable(QiimeCommand):
          input_fp, 
          output_dir,
          command_handler=command_handler,
-         params=params,
+         params=wf_params,
          qiime_config=qiime_config,
          parallel=parallel,\
          status_update_callback=status_update_callback)

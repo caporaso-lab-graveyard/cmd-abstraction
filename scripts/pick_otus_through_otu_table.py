@@ -13,6 +13,7 @@ __status__ = "Development"
 
 
 from cmd_abstraction.util import cmd_main, PickOtusThroughOtuTable
+from sys import argv
 
 if __name__ == "__main__":
-    cmd_main(PickOtusThroughOtuTable)
+    cmd_main(PickOtusThroughOtuTable,argv)
