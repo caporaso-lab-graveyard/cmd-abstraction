@@ -25,7 +25,7 @@ from qiime.workflow import (run_qiime_data_preparation,
                             log_input_md5s,
                             WorkflowLogger,
                             generate_log_fp)
-from cmd_abstraction.util import (WorkflowCommand, 
+from cmd_abstraction.util import (WorkflowCommand,
                                   QiimeCommand)
 
 qiime_config = load_qiime_config()
@@ -68,42 +68,42 @@ class PickOtusThroughOtuTable(WorkflowCommand):
     _input_file_parameter_ids = ['input_fp','parameter_fp']
 
     def run_command(self, 
-                    params,
+                    options,
                     args):
     
-        verbose = params['verbose']
+        verbose = options['verbose']
     
-        input_fp = params['input_fp']
-        output_dir = params['output_dir']
-        verbose = params['verbose']
-        print_only = params['print_only']
+        input_fp = options['input_fp']
+        output_dir = options['output_dir']
+        verbose = options['verbose']
+        print_only = options['print_only']
     
-        parallel = params['parallel']
+        parallel = options['parallel']
         # No longer checking that jobs_to_start > 2, but
         # commenting as we may change our minds about this.
         #if parallel: raise_error_on_parallel_unavailable()
     
-        if params['parameter_fp']:
+        if options['parameter_fp']:
             try:
-                parameter_f = open(params['parameter_fp'])
+                parameter_f = open(options['parameter_fp'])
             except IOError:
                 raise QiimeCommandError,\
                  "Can't open parameters file (%s). Does it exist? Do you have read access?"\
-                 % params['parameter_fp']
-            wf_params = parse_qiime_parameters(parameter_f)
+                 % options['parameter_fp']
+            params = parse_qiime_parameters(parameter_f)
         else:
-            wf_params = parse_qiime_parameters([]) 
+            params = parse_qiime_parameters([]) 
             # empty list returns empty defaultdict for now
             
-        wf_params['parallel']['jobs_to_start'] = self._validate_jobs_to_start(
-                                                            params['jobs_to_start'],
+        params['parallel']['jobs_to_start'] = self._validate_jobs_to_start(
+                                                            options['jobs_to_start'],
                                                             qiime_config['jobs_to_start'],
                                                             parallel)
     
         try:
             makedirs(output_dir)
         except OSError:
-            if params['force']:
+            if options['force']:
                 pass
             else:
                 # Since the analysis can take quite a while, I put this check
@@ -126,7 +126,7 @@ class PickOtusThroughOtuTable(WorkflowCommand):
          input_fp, 
          output_dir,
          command_handler=command_handler,
-         params=wf_params,
+         params=params,
          qiime_config=qiime_config,
          parallel=parallel,\
          status_update_callback=status_update_callback)
