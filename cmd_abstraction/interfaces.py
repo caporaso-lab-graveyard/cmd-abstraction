@@ -69,7 +69,7 @@ class PickOtusThroughOtuTable(WorkflowCommand):
 
     def run_command(self, 
                     options,
-                    args):
+                    arguments):
     
         verbose = options['verbose']
     

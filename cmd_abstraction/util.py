@@ -29,12 +29,12 @@ def cmd_main(cmd_constructor, argv):
     cmd = cmd_constructor()
     script_info = cmd.getScriptInfo()
     
-    option_parser, opts, args =\
+    option_parser, options, arguments =\
        parse_command_line_parameters(**script_info)
     
     try:
-        cmd(params = eval(str(opts)), 
-            args = args,
+        cmd(options = eval(str(options)), 
+            arguments = arguments,
             argv = argv)
     except QiimeCommandError, e:
         option_parser.error(e)
@@ -66,12 +66,12 @@ class QiimeCommand(object):
         """
         self._optional_options.extend(self._standard_options)
     
-    def __call__(self,params,args,argv,logger=None):
+    def __call__(self,options,arguments,argv,logger=None):
         """
         """
-        close_logger_on_success = self._start_logging(params,args,argv,logger)
-        self.run_command(params,args)
-        self._stop_logging(params,args,argv,close_logger_on_success)
+        close_logger_on_success = self._start_logging(options,arguments,argv,logger)
+        self.run_command(options,arguments)
+        self._stop_logging(options,arguments,argv,close_logger_on_success)
 
     def _start_logging(self,
                        params,
