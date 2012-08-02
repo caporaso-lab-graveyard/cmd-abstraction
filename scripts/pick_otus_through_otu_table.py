@@ -15,5 +15,7 @@ from cmd_abstraction.util import cmd_main
 from cmd_abstraction.interfaces import PickOtusThroughOtuTable
 from sys import argv
 
+cmd = PickOtusThroughOtuTable()
+script_info = cmd.getScriptInfo()
 if __name__ == "__main__":
-    cmd_main(PickOtusThroughOtuTable,argv)
+    cmd_main(cmd,argv)

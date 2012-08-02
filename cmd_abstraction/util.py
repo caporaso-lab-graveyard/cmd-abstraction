@@ -24,9 +24,7 @@ from qiime.workflow import (log_input_md5s,
 qiime_config = load_qiime_config()
 options_lookup = get_options_lookup()
 
-def cmd_main(cmd_constructor, argv):
-    
-    cmd = cmd_constructor()
+def cmd_main(cmd, argv):
     script_info = cmd.getScriptInfo()
     
     option_parser, options, arguments =\
