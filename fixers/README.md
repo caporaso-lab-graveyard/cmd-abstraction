@@ -11,3 +11,5 @@ ln -s /Users/caporaso/code/cmd-abstraction/fixers/fix_replace_args.py /Users/cap
 # then an example call to apply the ReplaceArgs fixer to a python file
 python ~/code/2to3/2to3 -f replace_args pick_otus_through_otu_table.py
 ```
+
+I beginning to realize that this is going to be extremely complicated, so trying this with a shell script for now.
